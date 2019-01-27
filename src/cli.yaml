@@ -1,0 +1,18 @@
+---
+name: rusty-clock
+version: "0.1.0"
+author: Christopher Hall <hsw@ms2.hinet.net>
+about: digital clock for LCD display
+args:
+    - verbose:
+        short: v
+        multiple: true
+        help: verbosity level
+    - debug:
+        short: D
+        long: debug
+        help: print debug information
+    - fullscreen:
+        short: f
+        long: fullscreen
+        help: run in fullscreen mode

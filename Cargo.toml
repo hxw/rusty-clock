@@ -1,0 +1,12 @@
+[package]
+name = "rusty-clock"
+version = "0.1.0"
+authors = ["Christopher Hall <hsw@ms2.hinet.net>"]
+edition = "2018"
+
+
+[dependencies]
+clap = {version = "*", features = ["yaml"]}
+x11 = {version = "*", features = ["xft", "xlib", "xinput"]}
+chrono = "*"
+libc = "*"
