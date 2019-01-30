@@ -7,7 +7,10 @@ use std::ffi::CString;
 use std::mem::{transmute, zeroed};
 use std::os::raw::*;
 use std::ptr::{null, null_mut};
+use std::sync::{Arc, Mutex};
 use x11::{xft, xinput2, xlib};
+
+mod socket;
 
 const TITLE: &'static str = "Clock";
 const DEFAULT_WIDTH: c_uint = 480;
@@ -34,17 +37,20 @@ pub struct ClockWindow {
     morning: Theme,
     afternoon: Theme,
     evening: Theme,
+    unsync: Theme,
 
     width: u32,
     height: u32,
 
     wm_protocols: xlib::Atom,
     wm_delete_window: xlib::Atom,
+
+    flag: Arc<Mutex<bool>>,
 }
 
 impl ClockWindow {
     /// Create a new window with a given title and size
-    pub fn new(title: &str, width: u32, height: u32) -> ClockWindow {
+    pub fn new(title: &str, width: u32, height: u32, flag: Arc<Mutex<bool>>) -> ClockWindow {
         unsafe {
             // Open display
             let display = xlib::XOpenDisplay(null());
@@ -143,10 +149,14 @@ impl ClockWindow {
                     "ForestGreen",
                     "grey4",
                 ),
+                unsync: ClockWindow::make_theme(
+                    display, visual, colourmap, "black", "grey10", "grey20", "red",
+                ),
                 width: width,
                 height: height,
                 wm_protocols: wm_protocols,
                 wm_delete_window: wm_delete_window,
+                flag: flag,
             }
         }
     }
@@ -242,11 +252,18 @@ impl ClockWindow {
             let date_len = d.len() as i32;
             let date_str = CString::new(d).unwrap();
 
-            let theme = match dt.hour() {
-                0 | 1 | 2 | 3 | 4 | 5 => &self.early,
-                6 | 7 | 8 | 9 | 10 | 11 => &self.morning,
-                12 | 13 | 14 | 15 | 16 | 17 => &self.afternoon,
-                _ => &self.evening,
+            let theme = {
+                let f = *self.flag.lock().unwrap();
+                if f {
+                    match dt.hour() {
+                        0 | 1 | 2 | 3 | 4 | 5 => &self.early,
+                        6 | 7 | 8 | 9 | 10 | 11 => &self.morning,
+                        12 | 13 | 14 | 15 | 16 | 17 => &self.afternoon,
+                        _ => &self.evening,
+                    }
+                } else {
+                    &self.unsync
+                }
             };
 
             xft::XftDrawRect(self.draw, &theme.background, 0, 0, self.width, self.height);
@@ -372,9 +389,12 @@ fn main() {
 
     let fullscreen = matches.is_present("fullscreen");
 
+    let unix_socket = matches.value_of("socket").unwrap();
+    let sync_flag = socket::setup(unix_socket, debug).unwrap();
+
     // end of options processing
 
-    let mut clock_window = ClockWindow::new(TITLE, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    let mut clock_window = ClockWindow::new(TITLE, DEFAULT_WIDTH, DEFAULT_HEIGHT, sync_flag);
     if fullscreen {
         clock_window.fullscreen();
     }
