@@ -1,0 +1,42 @@
+#!/bin/sh
+# script to run clock
+
+socket=/tmp/clock.socket
+sync_pid=''
+
+cleanup() {
+  [ -n "${sync_pid}" ] && kill "${sync_pid}"
+}
+trap INT EXIT cleanup
+
+(
+  n=5
+  while :
+  do
+    sleep 60
+    if sudo ntpctl -s status | grep  'clock unsynced' > /dev/null
+    then
+      echo 0 | nc -N -U "${socket}"
+      if [ ${n} -le 0 ]
+      then
+        n=10
+        sudo service openntpd restart
+      else
+        n=$((n - 1))
+      fi
+    else
+      echo 1 | nc -N -U "${socket}"
+      n=10
+    fi
+  done
+)&
+sync_pid="$!"
+
+while :
+do
+  xset -dpms
+  xset s noblank
+  xset s off
+  rusty-clock --fullscreen --socket="${socket}"
+done
+lxterminal
