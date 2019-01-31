@@ -135,7 +135,7 @@ impl ClockWindow {
                     "grey5",
                 ),
                 morning: ClockWindow::make_theme(
-                    display, visual, colourmap, "yellow", "orange", "gold", "black",
+                    display, visual, colourmap, "yellow", "gold", "orange", "black",
                 ),
                 afternoon: ClockWindow::make_theme(
                     display, visual, colourmap, "pink", "HotPink", "DeepPink", "black",
