@@ -15,6 +15,10 @@ mod socket;
 const TITLE: &'static str = "Clock";
 const DEFAULT_WIDTH: c_uint = 480;
 const DEFAULT_HEIGHT: c_uint = 320;
+const LEFT_MARGIN: c_int = 2;
+const TIME_Y: c_int = 110;
+const DAY_Y: c_int = 200;
+const DATE_Y: c_int = 300;
 
 struct Theme {
     time: x11::xft::XftColor,
@@ -112,11 +116,11 @@ impl ClockWindow {
             let draw = xft::XftDrawCreate(display, window, visual, colourmap);
 
             let time_font =
-                ClockWindow::make_font(display, screen_num, "DejaVu Sans:style=bold:size=72");
+                ClockWindow::make_font(display, screen_num, "Noto Sans:style=bold:size=89");
             let day_font =
-                ClockWindow::make_font(display, screen_num, "DejaVu Sans:style=bold:size=50");
+                ClockWindow::make_font(display, screen_num, "Noto Sans:style=bold:size=60");
             let date_font =
-                ClockWindow::make_font(display, screen_num, "DejaVu Sans:style=bold:size=54");
+                ClockWindow::make_font(display, screen_num, "Noto Sans:style=bold:size=65");
 
             ClockWindow {
                 display: display,
@@ -272,8 +276,8 @@ impl ClockWindow {
                 self.draw,
                 &theme.time,
                 self.time_font,
-                5,
-                120,
+                LEFT_MARGIN,
+                TIME_Y,
                 time_str.as_ptr() as *mut _,
                 time_len,
             );
@@ -281,8 +285,8 @@ impl ClockWindow {
                 self.draw,
                 &theme.day,
                 self.day_font,
-                10,
-                200,
+                LEFT_MARGIN,
+                DAY_Y,
                 day_str.as_ptr() as *mut _,
                 day_len,
             );
@@ -290,8 +294,8 @@ impl ClockWindow {
                 self.draw,
                 &theme.date,
                 self.date_font,
-                10,
-                290,
+                LEFT_MARGIN,
+                DATE_Y,
                 date_str.as_ptr() as *mut _,
                 date_len,
             );
@@ -511,7 +515,9 @@ fn main() {
                     }
                 }
                 xinput2::XI_Motion => {
-                    println!("motion event");
+                    if debug {
+                        println!("motion event");
+                    }
                 }
                 _ => {
                     println!("what event");
