@@ -2,6 +2,7 @@
 
 use chrono::prelude::*;
 use clap::{load_yaml, App};
+use dirs;
 use libc;
 use std::ffi::CString;
 use std::mem::{transmute, zeroed};
@@ -10,20 +11,27 @@ use std::ptr::{null, null_mut};
 use std::sync::{Arc, Mutex};
 use x11::{xft, xinput2, xlib};
 
+mod configure;
 mod socket;
 
-const TITLE: &'static str = "Clock";
-const DEFAULT_WIDTH: c_uint = 480;
-const DEFAULT_HEIGHT: c_uint = 320;
-const LEFT_MARGIN: c_int = 2;
-const TIME_Y: c_int = 110;
-const DAY_Y: c_int = 200;
-const DATE_Y: c_int = 300;
+const TITLE: &'static str = "Rusty Clock";
+const DEFAULT_WIDTH: u32 = 480;
+const DEFAULT_HEIGHT: u32 = 320;
+const LEFT_MARGIN: i32 = 2;
+const TIME_Y: i32 = 110;
+const DAY_Y: i32 = 200;
+const DATE_Y: i32 = 300;
+const WEATHER_MARGIN: i32 = (DEFAULT_WIDTH / 2) as i32;
+const WEATHER_Y: i32 = 200;
+
+const DEFAULT_CONFIG_DIR: &str = "rusty-clock";
+const DEFAULT_CONFIG_FILE: &str = "rusty-clock.conf";
 
 struct Theme {
     time: x11::xft::XftColor,
     day: x11::xft::XftColor,
     date: x11::xft::XftColor,
+    weather: x11::xft::XftColor,
     background: x11::xft::XftColor,
 }
 
@@ -36,6 +44,14 @@ pub struct ClockWindow {
     time_font: *mut x11::xft::XftFont,
     day_font: *mut x11::xft::XftFont,
     date_font: *mut x11::xft::XftFont,
+    weather_font: *mut x11::xft::XftFont,
+
+    time_point: configure::Point,
+    day_point: configure::Point,
+    date_point: configure::Point,
+    weather_point: configure::Point,
+
+    days: [String; 7],
 
     early: Theme,
     morning: Theme,
@@ -49,12 +65,21 @@ pub struct ClockWindow {
     wm_protocols: xlib::Atom,
     wm_delete_window: xlib::Atom,
 
-    flag: Arc<Mutex<bool>>,
+    input: Arc<Mutex<socket::Input>>,
 }
 
 impl ClockWindow {
     /// Create a new window with a given title and size
-    pub fn new(title: &str, width: u32, height: u32, flag: Arc<Mutex<bool>>) -> ClockWindow {
+    pub fn new(
+        title: &str,
+        width: u32,
+        height: u32,
+        days: [String; 7],
+        fonts: configure::StrMap,
+        coordinates: configure::PointMap,
+        themes: configure::ThemeMap,
+        input: Arc<Mutex<socket::Input>>,
+    ) -> ClockWindow {
         unsafe {
             // Open display
             let display = xlib::XOpenDisplay(null());
@@ -115,12 +140,34 @@ impl ClockWindow {
             let colourmap = xlib::XCreateColormap(display, window, visual, xlib::AllocNone);
             let draw = xft::XftDrawCreate(display, window, visual, colourmap);
 
-            let time_font =
-                ClockWindow::make_font(display, screen_num, "Noto Sans:style=bold:size=89");
-            let day_font =
-                ClockWindow::make_font(display, screen_num, "Noto Sans:style=bold:size=60");
-            let date_font =
-                ClockWindow::make_font(display, screen_num, "Noto Sans:style=bold:size=65");
+            let time_font = ClockWindow::make_font(
+                display,
+                screen_num,
+                fonts
+                    .get("time")
+                    .unwrap_or(&"Noto Sans:style=bold:size=89".to_string()),
+            );
+            let day_font = ClockWindow::make_font(
+                display,
+                screen_num,
+                fonts
+                    .get("day")
+                    .unwrap_or(&"Noto Sans:style=bold:size=55".to_string()),
+            );
+            let date_font = ClockWindow::make_font(
+                display,
+                -screen_num,
+                fonts
+                    .get("date")
+                    .unwrap_or(&"Noto Sans:style=bold:size=65".to_string()),
+            );
+            let weather_font = ClockWindow::make_font(
+                display,
+                -screen_num,
+                fonts
+                    .get("weather")
+                    .unwrap_or(&"Noto Sans:style=bold:size=65".to_string()),
+            );
 
             ClockWindow {
                 display: display,
@@ -129,38 +176,71 @@ impl ClockWindow {
                 time_font: time_font,
                 day_font: day_font,
                 date_font: date_font,
+                weather_font: weather_font,
+                time_point: *coordinates.get("time").unwrap_or(&configure::Point {
+                    x: LEFT_MARGIN,
+                    y: TIME_Y,
+                }),
+                day_point: *coordinates.get("day").unwrap_or(&configure::Point {
+                    x: LEFT_MARGIN,
+                    y: DAY_Y,
+                }),
+                date_point: *coordinates.get("date").unwrap_or(&configure::Point {
+                    x: LEFT_MARGIN,
+                    y: DATE_Y,
+                }),
+                weather_point: *coordinates.get("weather").unwrap_or(&configure::Point {
+                    x: WEATHER_MARGIN,
+                    y: WEATHER_Y,
+                }),
+
+                days: days,
+
                 early: ClockWindow::make_theme(
                     display,
                     visual,
                     colourmap,
+                    themes.get("early"),
                     "SteelBlue",
-                    "DarkBlue",
-                    "MidnightBlue",
                     "grey5",
                 ),
                 morning: ClockWindow::make_theme(
-                    display, visual, colourmap, "yellow", "gold", "orange", "black",
+                    display,
+                    visual,
+                    colourmap,
+                    themes.get("morning"),
+                    "gold",
+                    "black",
                 ),
                 afternoon: ClockWindow::make_theme(
-                    display, visual, colourmap, "pink", "HotPink", "DeepPink", "black",
+                    display,
+                    visual,
+                    colourmap,
+                    themes.get("afternoon"),
+                    "pink",
+                    "black",
                 ),
                 evening: ClockWindow::make_theme(
                     display,
                     visual,
                     colourmap,
+                    themes.get("evening"),
                     "SpringGreen",
-                    "LimeGreen",
-                    "ForestGreen",
                     "grey4",
                 ),
                 unsync: ClockWindow::make_theme(
-                    display, visual, colourmap, "black", "grey10", "grey20", "red",
+                    display,
+                    visual,
+                    colourmap,
+                    themes.get("unsync"),
+                    "black",
+                    "red",
                 ),
                 width: width,
                 height: height,
                 wm_protocols: wm_protocols,
                 wm_delete_window: wm_delete_window,
-                flag: flag,
+                input: input,
             }
         }
     }
@@ -178,16 +258,41 @@ impl ClockWindow {
         display: *mut x11::xlib::Display,
         visual: *const x11::xlib::Visual,
         colourmap: x11::xlib::Colormap,
-        name_time: &str,
-        name_day: &str,
-        name_date: &str,
-        name_background: &str,
+        theme: Option<&configure::StrMap>,
+        foreground: &str,
+        background: &str,
     ) -> Theme {
+        let mut time_colour = foreground;
+        let mut day_colour = foreground;
+        let mut date_colour = foreground;
+        let mut weather_colour = foreground;
+        match theme {
+            Some(t) => {
+                match t.get("time") {
+                    Some(c) => time_colour = c,
+                    None => (),
+                };
+                match t.get("day") {
+                    Some(c) => day_colour = c,
+                    None => (),
+                };
+                match t.get("date") {
+                    Some(c) => date_colour = c,
+                    None => (),
+                };
+                match t.get("weather") {
+                    Some(c) => weather_colour = c,
+                    None => (),
+                };
+            }
+            None => (),
+        };
         Theme {
-            time: ClockWindow::make_colour(display, visual, colourmap, name_time),
-            day: ClockWindow::make_colour(display, visual, colourmap, name_day),
-            date: ClockWindow::make_colour(display, visual, colourmap, name_date),
-            background: ClockWindow::make_colour(display, visual, colourmap, name_background),
+            time: ClockWindow::make_colour(display, visual, colourmap, time_colour),
+            day: ClockWindow::make_colour(display, visual, colourmap, day_colour),
+            date: ClockWindow::make_colour(display, visual, colourmap, date_colour),
+            weather: ClockWindow::make_colour(display, visual, colourmap, weather_colour),
+            background: ClockWindow::make_colour(display, visual, colourmap, background),
         }
     }
 
@@ -222,7 +327,6 @@ impl ClockWindow {
                     xlib::False,
                 ),
                 0,
-                //xlib::None,
             ];
             xlib::XChangeProperty(
                 self.display,
@@ -248,17 +352,17 @@ impl ClockWindow {
             let time_len = t.len() as i32;
             let time_str = CString::new(t).unwrap();
 
-            let d = dt.format("%A").to_string();
+            let d = &self.days[dt.weekday().num_days_from_sunday() as usize];
             let day_len = d.len() as i32;
-            let day_str = CString::new(d).unwrap();
+            let day_str = CString::new(d.to_string()).unwrap();
 
             let d = dt.format("%Y-%m-%d").to_string();
             let date_len = d.len() as i32;
             let date_str = CString::new(d).unwrap();
 
-            let theme = {
-                let f = *self.flag.lock().unwrap();
-                if f {
+            let (theme, weather) = {
+                let f = self.input.lock().unwrap();
+                let theme = if (*f).sync {
                     match dt.hour() {
                         0 | 1 | 2 | 3 | 4 | 5 => &self.early,
                         6 | 7 | 8 | 9 | 10 | 11 => &self.morning,
@@ -267,8 +371,10 @@ impl ClockWindow {
                     }
                 } else {
                     &self.unsync
-                }
+                };
+                (theme, (*f).weather.clone())
             };
+            let weather_len = weather.len() as i32;
 
             xft::XftDrawRect(self.draw, &theme.background, 0, 0, self.width, self.height);
 
@@ -276,8 +382,8 @@ impl ClockWindow {
                 self.draw,
                 &theme.time,
                 self.time_font,
-                LEFT_MARGIN,
-                TIME_Y,
+                self.time_point.x,
+                self.time_point.y,
                 time_str.as_ptr() as *mut _,
                 time_len,
             );
@@ -285,17 +391,26 @@ impl ClockWindow {
                 self.draw,
                 &theme.day,
                 self.day_font,
-                LEFT_MARGIN,
-                DAY_Y,
+                self.day_point.x,
+                self.day_point.y,
                 day_str.as_ptr() as *mut _,
                 day_len,
             );
             xft::XftDrawStringUtf8(
                 self.draw,
+                &theme.weather,
+                self.weather_font,
+                self.weather_point.x,
+                self.weather_point.y,
+                weather.as_ptr() as *mut _,
+                weather_len,
+            );
+            xft::XftDrawStringUtf8(
+                self.draw,
                 &theme.date,
                 self.date_font,
-                LEFT_MARGIN,
-                DATE_Y,
+                self.date_point.x,
+                self.date_point.y,
                 date_str.as_ptr() as *mut _,
                 date_len,
             );
@@ -393,12 +508,51 @@ fn main() {
 
     let fullscreen = matches.is_present("fullscreen");
 
-    let unix_socket = matches.value_of("socket").unwrap();
-    let sync_flag = socket::setup(unix_socket, debug).unwrap();
+    let mut config = std::path::PathBuf::new();
+
+    match matches.value_of("config") {
+        Some(name) => config.push(name),
+        None => match dirs::config_dir() {
+            Some(d) => {
+                config.push(d);
+                config.push(DEFAULT_CONFIG_DIR);
+                config.push(DEFAULT_CONFIG_FILE);
+            }
+            None => panic!("cannot get home directory"),
+        },
+    };
+
+    let cfg = configure::read(&config, debug).expect("error in config file");
+
+    println!("cfg: {:?}", cfg);
 
     // end of options processing
 
-    let mut clock_window = ClockWindow::new(TITLE, DEFAULT_WIDTH, DEFAULT_HEIGHT, sync_flag);
+    // setup socket
+    let sync_flag = socket::setup(&cfg.socket, debug).unwrap();
+
+    // setup window
+    let width = if cfg.width > 0 {
+        cfg.width as u32
+    } else {
+        DEFAULT_WIDTH
+    };
+    let height = if cfg.height > 0 {
+        cfg.height as u32
+    } else {
+        DEFAULT_HEIGHT
+    };
+
+    let mut clock_window = ClockWindow::new(
+        TITLE,
+        width,
+        height,
+        cfg.days,
+        cfg.fonts,
+        cfg.coordinates,
+        cfg.themes,
+        sync_flag,
+    );
     if fullscreen {
         clock_window.fullscreen();
     }

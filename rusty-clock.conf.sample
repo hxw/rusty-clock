@@ -1,0 +1,85 @@
+-- dmarc-reader.conf  -*- mode: lua -*-
+
+local M = {}
+
+-- Read the named file in under the specified data directory
+-- M.data_directory and return the contents.
+function read_file(name)
+    local f, err = io.open(M.data_directory .. "/" .. name, "r")
+    if f == nil then
+        return nil
+    end
+    local r = f:read("*a")
+    f:close()
+    return r
+end
+
+-- set the directory for data and log files
+M.data_directory = arg[0]:match("(.*/)")     -- dir from configuration file
+--M.data_directory = "."                       -- current directory
+--M.data_directory = "/var/db/rusty-clock"     -- absolute path
+
+
+M.socket = "/tmp/clock.socket"
+
+
+M.width = 480
+M.height = 320
+
+--M.days = {"SUN日","MON","TUE","WED","THU","FRI","SAT"}
+M.days = {"Su日","Mo一","Tu二","WED三","Th四","Fr五","Sa六"}
+
+M.fonts = {
+    time = "Noto Sans:style=bold:size=89",
+    day = "Noto Sans CJK TC:style=bold:size=60",
+    date = "Noto Sans:style=bold:size=65",
+    weather = "Noto Sans CJK TC:style=bold:size=60",
+}
+M.coordinates = {
+    time = { x = 2, y = 110},
+    day = { x = 2, y = 200},
+    date = { x = 2, y = 300},
+    weather = { x = 220, y = 200},
+}
+
+M.themes = {
+    early = {
+         time = "SteelBlue",
+         day = "DarkBlue",
+         date = "MidnightBlue",
+         weather = "SlateBlue",
+         background = "grey5",
+    },
+    morning = {
+        time = "yellow",
+        day = "gold",
+        date = "orange",
+        weather = "Gold4",
+        background = "black",
+    },
+    afternoon = {
+        time = "pink",
+        day = "HotPink",
+        date = "DeepPink",
+        weather = "DeepPink2",
+        background = "black",
+    },
+    evening = {
+        time = "SpringGreen",
+        day = "LimeGreen",
+        date = "ForestGreen",
+        weather = "DarkGreen",
+        background = "grey4",
+    },
+    unsync = {
+        time = "black",
+        day = "grey10",
+        date = "grey20",
+        weather = "grey15",
+        background = "red",
+    },
+}
+
+
+-- return the complete configuration
+return M

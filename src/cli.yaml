@@ -16,10 +16,10 @@ args:
         short: f
         long: fullscreen
         help: run in fullscreen mode
-    - socket:
-        short: s
-        long: socket
-        value_name: PATH
-        help: sets unix domain socket
+    - config:
+        short: c
+        long: config
+        value_name: FILE
+        help: configuration file name
         takes_value: true
-        required: true
+        required: false

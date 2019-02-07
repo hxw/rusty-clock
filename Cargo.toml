@@ -10,3 +10,5 @@ clap = {version = "*", features = ["yaml"]}
 x11 = {version = "*", features = ["xft", "xlib", "xinput"]}
 chrono = "*"
 libc = "*"
+rlua = "*"
+dirs = "*"
