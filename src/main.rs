@@ -522,11 +522,9 @@ fn main() {
         },
     };
 
-    let cfg = configure::read(&config, debug).expect("error in config file");
-
-    println!("cfg: {:?}", cfg);
-
     // end of options processing
+    // read configurartion file
+    let cfg = configure::read(&config, debug).expect("error in config file");
 
     // setup socket
     let sync_flag = socket::setup(&cfg.socket, debug).unwrap();

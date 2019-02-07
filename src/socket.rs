@@ -33,7 +33,7 @@ fn handle_client(stream: UnixStream, input: Arc<Mutex<Input>>, debug: bool) {
         if stream.read_line(&mut buf).is_err() {
             break;
         }
-        if buf.len() < 1 || buf == "\r\n" || buf == "\n" {
+        if buf.len() < 3 || buf == "\r\n" || buf == "\n" {
             if debug {
                 println!("empty line");
             }

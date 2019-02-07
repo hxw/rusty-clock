@@ -27,7 +27,7 @@ M.width = 480
 M.height = 320
 
 --M.days = {"SUN日","MON","TUE","WED","THU","FRI","SAT"}
-M.days = {"Su日","Mo一","Tu二","WED三","Th四","Fr五","Sa六"}
+M.days = {"Su日","Mo一","Tu二","We三","Th四","Fr五","Sa六"}
 
 M.fonts = {
     time = "Noto Sans:style=bold:size=89",

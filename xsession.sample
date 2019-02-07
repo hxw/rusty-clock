@@ -16,7 +16,7 @@ trap INT EXIT cleanup
     sleep 60
     if sudo ntpctl -s status | grep  'clock unsynced' > /dev/null
     then
-      echo 0 | nc -N -U "${socket}"
+      printf 's=0\n' | nc -N -U "${socket}"
       if [ ${n} -le 0 ]
       then
         n=10
@@ -25,7 +25,7 @@ trap INT EXIT cleanup
         n=$((n - 1))
       fi
     else
-      echo 1 | nc -N -U "${socket}"
+      printf 's=1\n' | nc -N -U "${socket}"
       n=10
     fi
   done
@@ -37,6 +37,6 @@ do
   xset -dpms
   xset s noblank
   xset s off
-  rusty-clock --fullscreen --socket="${socket}"
+  rusty-clock --fullscreen
 done
 lxterminal
