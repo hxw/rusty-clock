@@ -1,16 +1,19 @@
 #!/bin/sh
 # script to run clock
 
+get_weather=get-weather
 socket=/tmp/clock.socket
 sync_pid=''
 
 cleanup() {
   [ -n "${sync_pid}" ] && kill "${sync_pid}"
 }
-trap INT EXIT cleanup
+trap cleanup INT EXIT
 
 (
   n=5
+  w=0
+  ws='----'
   while :
   do
     sleep 60
@@ -25,7 +28,14 @@ trap INT EXIT cleanup
         n=$((n - 1))
       fi
     else
-      printf 's=1\n' | nc -N -U "${socket}"
+      if [ ${w} -le 0 ]
+      then
+        w=30
+        ws=$("${get_weather}")
+      else
+        w=$((w - 1))
+      fi
+      printf 's=1\nw=%s\n' "${ws}" | nc -N -U "${socket}"
       n=10
     fi
   done
@@ -38,5 +48,6 @@ do
   xset s noblank
   xset s off
   rusty-clock --fullscreen
+  sleep 1
 done
 lxterminal
