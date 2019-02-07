@@ -39,7 +39,9 @@ pub struct ClockWindow {
     pub display: *mut xlib::Display,
     pub window: xlib::Window,
 
+    pixmap: xlib::Pixmap,
     draw: *mut x11::xft::XftDraw,
+    gc: xlib::GC,
 
     time_font: *mut x11::xft::XftFont,
     day_font: *mut x11::xft::XftFont,
@@ -104,6 +106,7 @@ impl ClockWindow {
             let screen_num = xlib::XDefaultScreen(display);
             let root = xlib::XRootWindow(display, screen_num);
             let background_pixel = xlib::XBlackPixel(display, screen_num);
+            let foreground_pixel = xlib::XWhitePixel(display, screen_num);
 
             let mut attributes: xlib::XSetWindowAttributes = zeroed();
             attributes.background_pixel = background_pixel;
@@ -138,7 +141,20 @@ impl ClockWindow {
 
             let visual = xlib::XDefaultVisual(display, screen_num);
             let colourmap = xlib::XCreateColormap(display, window, visual, xlib::AllocNone);
-            let draw = xft::XftDrawCreate(display, window, visual, colourmap);
+            //let draw = xft::XftDrawCreate(display, window, visual, colourmap);
+
+            let depth = xlib::XDefaultDepthOfScreen(xlib::XDefaultScreenOfDisplay(display));
+            let pixmap = xlib::XCreatePixmap(display, window, width, height, depth as u32);
+            //let draw = xft::XftDrawCreateAlpha(display, pixmap, depth);
+            let draw = xft::XftDrawCreate(display, pixmap, visual, colourmap);
+
+            let mut gcvalues: xlib::XGCValues = zeroed();
+            let gc = xlib::XCreateGC(display, window, 0, &mut gcvalues);
+            //xlib:: XSetFunction(self.display, gc, int function);
+
+            xlib::XSetPlaneMask(display, gc, xlib::XAllPlanes());
+            xlib::XSetForeground(display, gc, foreground_pixel);
+            xlib::XSetBackground(display, gc, background_pixel);
 
             let time_font = ClockWindow::make_font(
                 display,
@@ -172,7 +188,9 @@ impl ClockWindow {
             ClockWindow {
                 display: display,
                 window: window,
+                pixmap: pixmap,
                 draw: draw,
+                gc: gc,
                 time_font: time_font,
                 day_font: day_font,
                 date_font: date_font,
@@ -413,6 +431,19 @@ impl ClockWindow {
                 self.date_point.y,
                 date_str.as_ptr() as *mut _,
                 date_len,
+            );
+
+            xlib::XCopyArea(
+                self.display,
+                self.pixmap,
+                self.window,
+                self.gc,
+                0,
+                0,
+                self.width,
+                self.height,
+                0,
+                0,
             );
         }
     }

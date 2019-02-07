@@ -44,11 +44,11 @@ M.coordinates = {
 
 M.themes = {
     early = {
-         time = "SteelBlue",
-         day = "DarkBlue",
-         date = "MidnightBlue",
-         weather = "SlateBlue",
-         background = "grey5",
+        time = "SteelBlue",
+        day = "DarkBlue",
+        date = "MidnightBlue",
+        weather = "SlateBlue",
+        background = "grey5",
     },
     morning = {
         time = "yellow",
@@ -67,8 +67,8 @@ M.themes = {
     evening = {
         time = "SpringGreen",
         day = "LimeGreen",
-        date = "ForestGreen",
-        weather = "DarkGreen",
+        date = "SeaGreen",
+        weather = "Green",
         background = "grey4",
     },
     unsync = {
