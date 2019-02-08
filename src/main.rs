@@ -284,6 +284,7 @@ impl ClockWindow {
         let mut day_colour = foreground;
         let mut date_colour = foreground;
         let mut weather_colour = foreground;
+        let mut background_colour = background;
         match theme {
             Some(t) => {
                 match t.get("time") {
@@ -302,6 +303,10 @@ impl ClockWindow {
                     Some(c) => weather_colour = c,
                     None => (),
                 };
+                match t.get("background") {
+                    Some(c) => background_colour = c,
+                    None => (),
+                };
             }
             None => (),
         };
@@ -310,7 +315,7 @@ impl ClockWindow {
             day: ClockWindow::make_colour(display, visual, colourmap, day_colour),
             date: ClockWindow::make_colour(display, visual, colourmap, date_colour),
             weather: ClockWindow::make_colour(display, visual, colourmap, weather_colour),
-            background: ClockWindow::make_colour(display, visual, colourmap, background),
+            background: ClockWindow::make_colour(display, visual, colourmap, background_colour),
         }
     }
 

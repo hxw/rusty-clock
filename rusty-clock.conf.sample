@@ -54,7 +54,7 @@ M.themes = {
         time = "yellow",
         day = "gold",
         date = "orange",
-        weather = "Gold4",
+        weather = "Gold2",
         background = "black",
     },
     afternoon = {
@@ -65,11 +65,11 @@ M.themes = {
         background = "black",
     },
     evening = {
-        time = "SpringGreen",
-        day = "LimeGreen",
-        date = "SeaGreen",
-        weather = "Green",
-        background = "grey4",
+        time = "LightCyan",
+        day = "cyan",
+        date = "SkyBlue",
+        weather = "LightBlue",
+        background = "grey10",
     },
     unsync = {
         time = "black",
