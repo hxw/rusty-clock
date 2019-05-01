@@ -64,6 +64,8 @@ pub struct ClockWindow {
     width: u32,
     height: u32,
 
+    weather_index: usize,
+
     wm_protocols: xlib::Atom,
     wm_delete_window: xlib::Atom,
 
@@ -168,21 +170,21 @@ impl ClockWindow {
                 screen_num,
                 fonts
                     .get("day")
-                    .unwrap_or(&"Noto Sans:style=bold:size=55".to_string()),
+                    .unwrap_or(&"Noto Sans:style=bold:size=60".to_string()),
             );
             let date_font = ClockWindow::make_font(
                 display,
-                -screen_num,
+                screen_num,
                 fonts
                     .get("date")
                     .unwrap_or(&"Noto Sans:style=bold:size=65".to_string()),
             );
             let weather_font = ClockWindow::make_font(
                 display,
-                -screen_num,
+                screen_num,
                 fonts
                     .get("weather")
-                    .unwrap_or(&"Noto Sans:style=bold:size=65".to_string()),
+                    .unwrap_or(&"Noto Sans:style=bold:size=60".to_string()),
             );
 
             ClockWindow {
@@ -256,6 +258,7 @@ impl ClockWindow {
                 ),
                 width: width,
                 height: height,
+                weather_index: 0,
                 wm_protocols: wm_protocols,
                 wm_delete_window: wm_delete_window,
                 input: input,
@@ -397,7 +400,7 @@ impl ClockWindow {
                 };
                 (theme, (*f).weather.clone())
             };
-            let weather_len = weather.len() as i32;
+            //let weather_len = weather.len() as i32;
 
             xft::XftDrawRect(self.draw, &theme.background, 0, 0, self.width, self.height);
 
@@ -419,14 +422,40 @@ impl ClockWindow {
                 day_str.as_ptr() as *mut _,
                 day_len,
             );
+            let w = match weather.get(self.weather_index..) {
+                Some(w) => {
+                    let mut c = w.char_indices();
+                    let char_count = w.char_indices().count();
+                    c.next();
+                    match c.next() {
+                        Some((n, _)) => {
+                            if char_count > 4 {
+                                self.weather_index += n;
+                            } else {
+                                self.weather_index = 0;
+                            }
+                        }
+                        None => {
+                            self.weather_index = 0;
+                        }
+                    };
+                    w
+                }
+
+                None => {
+                    self.weather_index = 0;
+                    ""
+                }
+            };
+
             xft::XftDrawStringUtf8(
                 self.draw,
                 &theme.weather,
                 self.weather_font,
                 self.weather_point.x,
                 self.weather_point.y,
-                weather.as_ptr() as *mut _,
-                weather_len,
+                w.as_ptr() as *mut _,
+                w.len() as i32,
             );
             xft::XftDrawStringUtf8(
                 self.draw,
@@ -466,8 +495,8 @@ impl ClockWindow {
 
         'event_loop: loop {
             let mut tv = libc::timeval {
-                tv_usec: 0,
-                tv_sec: 1,
+                tv_usec: 0, // 500_000,
+                tv_sec: 1,  // 0
             };
 
             // Create a File Description Set containing x11_fd
@@ -479,7 +508,7 @@ impl ClockWindow {
             let status =
                 unsafe { libc::select(x11_fd + 1, &mut in_fds, null_mut(), null_mut(), &mut tv) };
             if status == 0 {
-                //println!("timer tick");
+                // println!("timer tick");
                 self.show();
             }
 

@@ -26,7 +26,7 @@ M.socket = "/tmp/clock.socket"
 M.width = 480
 M.height = 320
 
---M.days = {"SUN日","MON","TUE","WED","THU","FRI","SAT"}
+--M.days = {"SUN","MON","TUE","WED","THU","FRI","SAT"}
 M.days = {"Su日","Mo一","Tu二","We三","Th四","Fr五","Sa六"}
 
 M.fonts = {
