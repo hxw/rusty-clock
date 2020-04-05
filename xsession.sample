@@ -32,10 +32,12 @@ trap cleanup INT EXIT
       then
         w=30
         ws=$("${get_weather}")
+	ww="${ws%&*}"
+	wt="${ws#*&}"
       else
         w=$((w - 1))
       fi
-      printf 's=1\nw=%s\n' "${ws}" | nc -N -U "${socket}"
+      printf 's=1\nw=%s\nt=%s\n' "${ww}" "${wt}" | nc -N -U "${socket}"
       n=10
     fi
   done
