@@ -17,12 +17,15 @@ mod socket;
 const TITLE: &'static str = "Rusty Clock";
 const DEFAULT_WIDTH: u32 = 480;
 const DEFAULT_HEIGHT: u32 = 320;
-const LEFT_MARGIN: i32 = 2;
+const DEFAULT_MARGIN: i32 = 2;
+const TIME_MARGIN: i32 = DEFAULT_MARGIN;
 const TIME_Y: i32 = 110;
+const DAY_MARGIN: i32 = DEFAULT_MARGIN;
 const DAY_Y: i32 = 200;
-const DATE_Y: i32 = 300;
-const WEATHER_MARGIN: i32 = (DEFAULT_WIDTH / 2) as i32;
-const WEATHER_Y: i32 = 200;
+const DATE_MARGIN: i32 = (DEFAULT_WIDTH / 2) as i32;
+const DATE_Y: i32 = 200;
+const WEATHER_MARGIN: i32 = DEFAULT_MARGIN;
+const WEATHER_Y: i32 = 300;
 
 const DEFAULT_CONFIG_DIR: &str = "rusty-clock";
 const DEFAULT_CONFIG_FILE: &str = "rusty-clock.conf";
@@ -63,8 +66,6 @@ pub struct ClockWindow {
 
     width: u32,
     height: u32,
-
-    weather_index: usize,
 
     wm_protocols: xlib::Atom,
     wm_delete_window: xlib::Atom,
@@ -177,14 +178,14 @@ impl ClockWindow {
                 screen_num,
                 fonts
                     .get("date")
-                    .unwrap_or(&"Noto Sans:style=bold:size=65".to_string()),
+                    .unwrap_or(&"Noto Sans:style=bold:size=60".to_string()),
             );
             let weather_font = ClockWindow::make_font(
                 display,
                 screen_num,
                 fonts
                     .get("weather")
-                    .unwrap_or(&"Noto Sans:style=bold:size=60".to_string()),
+                    .unwrap_or(&"Noto Sans:style=bold:size=50".to_string()),
             );
 
             ClockWindow {
@@ -198,15 +199,15 @@ impl ClockWindow {
                 date_font: date_font,
                 weather_font: weather_font,
                 time_point: *coordinates.get("time").unwrap_or(&configure::Point {
-                    x: LEFT_MARGIN,
+                    x: TIME_MARGIN,
                     y: TIME_Y,
                 }),
                 day_point: *coordinates.get("day").unwrap_or(&configure::Point {
-                    x: LEFT_MARGIN,
+                    x: DAY_MARGIN,
                     y: DAY_Y,
                 }),
                 date_point: *coordinates.get("date").unwrap_or(&configure::Point {
-                    x: LEFT_MARGIN,
+                    x: DATE_MARGIN,
                     y: DATE_Y,
                 }),
                 weather_point: *coordinates.get("weather").unwrap_or(&configure::Point {
@@ -258,7 +259,6 @@ impl ClockWindow {
                 ),
                 width: width,
                 height: height,
-                weather_index: 0,
                 wm_protocols: wm_protocols,
                 wm_delete_window: wm_delete_window,
                 input: input,
@@ -382,11 +382,12 @@ impl ClockWindow {
             let day_len = d.len() as i32;
             let day_str = CString::new(d.to_string()).unwrap();
 
-            let d = dt.format("%Y-%m-%d").to_string();
+            // let d = dt.format("%Y-%m-%d").to_string();
+            let d = dt.format("%m-%d").to_string();
             let date_len = d.len() as i32;
             let date_str = CString::new(d).unwrap();
 
-            let (theme, weather) = {
+            let (theme, weather, temperature) = {
                 let f = self.input.lock().unwrap();
                 let theme = if (*f).sync {
                     match dt.hour() {
@@ -398,7 +399,7 @@ impl ClockWindow {
                 } else {
                     &self.unsync
                 };
-                (theme, (*f).weather.clone())
+                (theme, (*f).weather.clone(), (*f).temperature.clone())
             };
             //let weather_len = weather.len() as i32;
 
@@ -422,41 +423,6 @@ impl ClockWindow {
                 day_str.as_ptr() as *mut _,
                 day_len,
             );
-            let w = match weather.get(self.weather_index..) {
-                Some(w) => {
-                    let mut c = w.char_indices();
-                    let char_count = w.char_indices().count();
-                    c.next();
-                    match c.next() {
-                        Some((n, _)) => {
-                            if char_count > 4 {
-                                self.weather_index += n;
-                            } else {
-                                self.weather_index = 0;
-                            }
-                        }
-                        None => {
-                            self.weather_index = 0;
-                        }
-                    };
-                    w
-                }
-
-                None => {
-                    self.weather_index = 0;
-                    ""
-                }
-            };
-
-            xft::XftDrawStringUtf8(
-                self.draw,
-                &theme.weather,
-                self.weather_font,
-                self.weather_point.x,
-                self.weather_point.y,
-                w.as_ptr() as *mut _,
-                w.len() as i32,
-            );
             xft::XftDrawStringUtf8(
                 self.draw,
                 &theme.date,
@@ -465,6 +431,31 @@ impl ClockWindow {
                 self.date_point.y,
                 date_str.as_ptr() as *mut _,
                 date_len,
+            );
+
+            let w_count = weather.char_indices().count();
+            let t_count = weather.char_indices().count();
+
+            let mut ww = String::new();
+
+            // need some way to move the length to config
+            if w_count + 1 + t_count < 8 {
+                ww.push_str(&weather);
+                ww.push_str(" ");
+                ww.push_str(&temperature);
+            } else if dt.second() / 2 % 2 == 0 {
+                ww.push_str(&weather);
+            } else {
+                ww.push_str(&temperature);
+            };
+            xft::XftDrawStringUtf8(
+                self.draw,
+                &theme.weather,
+                self.weather_font,
+                self.weather_point.x,
+                self.weather_point.y,
+                ww.as_ptr() as *mut _,
+                ww.len() as i32,
             );
 
             xlib::XCopyArea(
@@ -496,7 +487,7 @@ impl ClockWindow {
         'event_loop: loop {
             let mut tv = libc::timeval {
                 tv_usec: 0, // 500_000,
-                tv_sec: 1,  // 0
+                tv_sec: 1,  // 0,
             };
 
             // Create a File Description Set containing x11_fd

@@ -32,14 +32,14 @@ M.days = {"Su日","Mo一","Tu二","We三","Th四","Fr五","Sa六"}
 M.fonts = {
     time = "Noto Sans:style=bold:size=89",
     day = "Noto Sans CJK TC:style=bold:size=60",
-    date = "Noto Sans:style=bold:size=65",
-    weather = "Noto Sans CJK TC:style=bold:size=60",
+    date = "Noto Sans CJK:style=bold:size=60",
+    weather = "Noto Sans CJK TC:style=bold:size=50",
 }
 M.coordinates = {
     time = { x = 2, y = 110},
     day = { x = 2, y = 200},
-    date = { x = 2, y = 300},
-    weather = { x = 220, y = 200},
+    date = { x = 220, y = 200},
+    weather = { x = 2, y = 300},
 }
 
 M.themes = {

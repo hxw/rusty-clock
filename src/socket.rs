@@ -11,13 +11,15 @@ use std::thread;
 pub struct Input {
     pub sync: bool,
     pub weather: String,
+    pub temperature: String,
 }
 
 impl Input {
     fn new() -> Input {
         Input {
             sync: false,
-            weather: "----".to_string(), //String::new(),
+            weather: "----".to_string(),     //String::new(),
+            temperature: "----".to_string(), //String::new(),
         }
     }
 }
@@ -59,6 +61,10 @@ fn handle_client(stream: UnixStream, input: Arc<Mutex<Input>>, debug: bool) {
                 },
                 "w=" => {
                     (*f).weather = b[2..].to_string();
+                    true
+                }
+                "t=" => {
+                    (*f).temperature = b[2..].to_string();
                     true
                 }
                 _ => false,
